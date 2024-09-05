@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude API Streaming directly from the browser</title>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <div class="container mx-auto p-4 flex-grow flex flex-col">
+        <div class="flex flex-row justify-between">
+            <div>
+                <h1 class="text-3xl font-bold mb-4">Claude API Streaming directly from the browser</h1>
+                <h2 class="text-xl mb-4">with <a href="openapi.json" target="_blank" class="text-blue-500">OpenAPI
+                        spec</a> and
+                    <a href="chat-completions.json" target="_blank" class="text-blue-500">Chat Completions spec</a>
+                </h2>
+            </div>
+            <div class="mb-4 flex flex-row gap-4 justify-center items-center">
+                <button id="settingsBtn" class="bg-blue-500 text-white px-4 py-2 rounded">
+                    <i class="fas fa-cog mr-2"></i>Settings
+                </button>
+                <a href="https://github.com/CodeFromAnywhere/anthropic-openapi" target="_blank"
+                    class="bg-black text-white px-4 py-2 rounded">
+                    GitHub
+                </a>
+            </div>
+        </div>
+
+        <div id="settingsModal"
+            class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <h3 class="text-lg font-bold mb-4">Settings</h3>
+                <div class="mb-4">
+                    <label for="apiKey" class="block mb-2">API Key <a href="https://console.anthropic.com/settings/keys"
+                            target="_blank" class="text-blue-500">(Get one)</a>:</label>
+                    <input type="text" id="apiKey" class="w-full border p-2 rounded">
+                </div>
+                <div class="mb-4">
+                    <label for="model" class="block mb-2">Model:</label>
+                    <select id="model" class="w-full border p-2 rounded">
+                        <option value="claude-3-opus-20240229">claude-3-opus-20240229</option>
+                        <option value="claude-3-sonnet-20240229">claude-3-sonnet-20240229</option>
+                        <option value="claude-3-haiku-20240307">claude-3-haiku-20240307</option>
+                        <option value="claude-3-5-sonnet-20240620">claude-3-5-sonnet-20240620</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="promptTemplate" class="block mb-2">Prompt Template:</label>
+                    <textarea id="promptTemplate" class="w-full border p-2 rounded" rows="4"></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button id="saveSettingsBtn" class="bg-green-500 text-white px-4 py-2 rounded mr-2">Save</button>
+                    <button id="closeSettingsBtn" class="bg-red-500 text-white px-4 py-2 rounded">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <textarea id="userPrompt" class="w-full p-2 border rounded" rows="4"
+                placeholder="Enter your prompt here..."></textarea>
+        </div>
+
+        <div class="mb-4">
+            <button id="submitBtn" class="bg-green-500 text-white px-4 py-2 rounded">
+                <i class="fas fa-paper-plane mr-2"></i>Submit
+            </button>
+        </div>
+
+        <div class="relative">
+            <textarea id="response" class="bg-white p-4 rounded shadow-md flex-grow resize-none w-full"
+                readonly></textarea>
+            <div class="absolute top-2 right-2 flex">
+                <button id="copyCodeBtn" class="hidden bg-green-500 text-white px-2 py-1 rounded text-sm mr-2">
+                    <i class="fas fa-copy mr-1"></i>Copy Code
+                </button>
+                <button id="openHostedBtn" class="hidden bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                    <i class="fas fa-external-link-alt mr-1"></i>Open Hosted
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+
+        // Initialize settings
+        const defaultSettings = {
+            apiKey: '',
+            model: 'claude-3-5-sonnet-20240620',
+            promptTemplate: 'Make me a vanilla HTML + TailwindCDN + CSS + JS website with the following requirements:\n\n- everything is always stored as much as possible in localStorage and editable in settings, including api keys (if needed)\n- for icons, use font awesome\n- always respond with a full new HTML page in a codeblock\n\n{userPrompt}'
+        };
+
+        let isHosted = false;
+
+        let settings = JSON.parse(localStorage.getItem('claudeSettings')) || defaultSettings;
+        let hostedContentUrl = null;
+
+        // Update settings in the modal
+        function updateSettingsModal() {
+            document.getElementById('apiKey').value = settings.apiKey;
+            document.getElementById('model').value = settings.model;
+            document.getElementById('promptTemplate').value = settings.promptTemplate;
+        }
+
+        // Save settings
+        function saveSettings() {
+            settings.apiKey = document.getElementById('apiKey').value;
+            settings.model = document.getElementById('model').value;
+            settings.promptTemplate = document.getElementById('promptTemplate').value;
+            localStorage.setItem('claudeSettings', JSON.stringify(settings));
+        }
+
+        function openSettingsModal() {
+            updateSettingsModal();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        // Event listeners for settings modal
+        document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+        document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.add('hidden');
+        });
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            saveSettings();
+            document.getElementById('settingsModal').classList.add('hidden');
+        });
+
+        // Function to stream response from Claude API
+        async function streamResponse(userPrompt) {
+            if (!settings.apiKey || settings.apiKey.trim() === "") {
+                alert("Before you can start, add an api key in settings");
+                openSettingsModal();
+                return;
+            }
+
+            const response = document.getElementById('response');
+            const copyCodeBtn = document.getElementById('copyCodeBtn');
+            const openHostedBtn = document.getElementById('openHostedBtn');
+            response.value = '';
+            copyCodeBtn.classList.add('hidden');
+            openHostedBtn.classList.add('hidden');
+            hostedContentUrl = null;
+
+            const prompt = settings.promptTemplate.replace('{userPrompt}', userPrompt);
+
+            try {
+                const res = await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': settings.apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: settings.model,
+                        max_tokens: 4096,
+                        messages: [{ role: 'user', content: prompt }],
+                        stream: true
+                    })
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data:')) {
+                            const data = JSON.parse(line.slice(5));
+                            console.log(data)
+                            if (data.type === 'content_block_delta' && data.delta.type === 'text_delta') {
+                                response.value += data.delta.text;
+                                response.scrollTop = response.scrollHeight;
+                                checkForCodeBlocks();
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                response.value = `Error: ${error.message}`;
+            }
+        }
+
+
+        // Function to check for code blocks and show/hide the buttons
+        async function checkForCodeBlocks() {
+            const response = document.getElementById('response');
+            const copyCodeBtn = document.getElementById('copyCodeBtn');
+            const codeBlockRegex = /```[\s\S]*?```/;
+
+            if (codeBlockRegex.test(response.value)) {
+                copyCodeBtn.classList.remove('hidden');
+
+                if (!isHosted) {
+                    isHosted = true;
+                    console.log("hostcode only once")
+                    await hostCode();
+                }
+
+            } else {
+                copyCodeBtn.classList.add('hidden');
+            }
+        }
+
+        // Function to extract code from a code block, omitting the language specifier
+        function extractCode(text) {
+            const codeBlockRegex = /```(?:\w+\s)?([\s\S]*?)```/;
+            const match = text.match(codeBlockRegex);
+            return match ? match[1].trim() : null;
+        }
+
+        // Function to copy code to clipboard
+        function copyCodeToClipboard() {
+            const response = document.getElementById('response');
+            const code = extractCode(response.value);
+
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    alert('Code copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy code: ', err);
+                });
+            }
+        }
+
+        // Function to host the code
+        async function hostCode() {
+            const response = document.getElementById('response');
+            const code = extractCode(response.value);
+            const userPrompt = document.getElementById('userPrompt').value;
+
+            if (code) {
+                try {
+                    const res = await fetch('https://content.actionschema.com/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', },
+                        body: JSON.stringify({
+                            code: code,
+                            prompt: userPrompt,
+                            extension: 'html'
+                        })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        hostedContentUrl = data.contentUrl;
+                        document.getElementById('openHostedBtn').classList.remove('hidden');
+                    } else {
+                        console.error('Failed to host the code');
+                    }
+                } catch (error) {
+                    console.error('Error hosting code:', error);
+                }
+            }
+        }
+
+        // Event listener for submit button
+        document.getElementById('submitBtn').addEventListener('click', () => {
+
+            // set hosted to false again
+            isHosted = false;
+
+            const userPrompt = document.getElementById('userPrompt').value;
+            streamResponse(userPrompt);
+        });
+
+        // Event listener for "Copy Code" button
+        document.getElementById('copyCodeBtn').addEventListener('click', copyCodeToClipboard);
+
+        // Event listener for "Open Hosted" button
+        document.getElementById('openHostedBtn').addEventListener('click', () => {
+            if (hostedContentUrl) {
+                window.open(hostedContentUrl, '_blank');
+            }
+        });
+
+        // Initialize settings modal
+        updateSettingsModal();
+
+        // Adjust textarea height on window resize
+        function adjustTextareaHeight() {
+            const response = document.getElementById('response');
+            const container = document.querySelector('.container');
+            const containerRect = container.getBoundingClientRect();
+            const remainingHeight = window.innerHeight - containerRect.top - 340; // 20px for bottom margin
+            response.style.height = `${remainingHeight}px`;
+        }
+
+        window.addEventListener('resize', adjustTextareaHeight);
+        adjustTextareaHeight(); // Initial adjustment
+
+
+        // Check for remix parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const remixUrl = urlParams.get('remix');
+        if (remixUrl) {
+            fetch(remixUrl)
+                .then(response => response.text())
+                .then(content => {
+                    document.getElementById('userPrompt').value = content;
+                })
+                .catch(error => console.error('Error fetching remix content:', error));
+        }
+    </script>
+</body>
+
+</html>

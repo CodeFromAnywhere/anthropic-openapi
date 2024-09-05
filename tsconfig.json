@@ -1,0 +1,7 @@
+{
+  "include": ["api"],
+  "compilerOptions": {
+    "lib": ["es2022", "DOM"],
+    "esModuleInterop": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@types/node": "^22.5.4",
+    "openapi-util": "^0.0.152"
+  }
+}

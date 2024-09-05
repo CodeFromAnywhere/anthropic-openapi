@@ -1,0 +1,244 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Anthropic API",
+    "description": "The Anthropic Chat Completions API. ",
+    "termsOfService": "https://www.anthropic.com/legal/terms",
+    "contact": {
+      "name": "Anthropic Support",
+      "url": "https://www.anthropic.com/support"
+    },
+    "license": {
+      "name": "Anthropic License",
+      "url": "https://www.anthropic.com/legal/terms"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://anthropic.actionschema.com"
+    }
+  ],
+  "x-origin-servers": [
+    {
+      "url": "https://api.anthropic.com/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Chat",
+      "description": "Given a list of messages comprising a conversation, the model will return a response."
+    }
+  ],
+  "paths": {
+    "/chat/completions": {
+      "post": {
+        "operationId": "createChatCompletion",
+        "tags": ["Chat"],
+        "summary": "Creates a model response for the given chat conversation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messages": {
+                    "description": "A list of messages comprising the conversation so far.",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "title": "Human message",
+                          "properties": {
+                            "content": {
+                              "description": "The contents of the human message.",
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": ["human"],
+                              "description": "The role of the messages author, in this case `human`."
+                            }
+                          },
+                          "required": ["content", "role"]
+                        },
+                        {
+                          "type": "object",
+                          "title": "Assistant message",
+                          "properties": {
+                            "content": {
+                              "type": "string",
+                              "description": "The contents of the assistant message."
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": ["assistant"],
+                              "description": "The role of the messages author, in this case `assistant`."
+                            }
+                          },
+                          "required": ["role", "content"]
+                        }
+                      ],
+                      "x-oaiExpandable": true
+                    }
+                  },
+                  "model": {
+                    "description": "ID of the model to use.",
+                    "example": "claude-3-5-sonnet-20240620",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "claude-3-opus-20240229",
+                          "claude-3-sonnet-20240229",
+                          "claude-3-haiku-20240307",
+                          "claude-3-5-sonnet-20240620"
+                        ]
+                      }
+                    ],
+                    "x-oaiTypeLabel": "string"
+                  },
+                  "max_tokens": {
+                    "description": "The maximum number of tokens to generate in the chat completion.",
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.7,
+                    "example": 0.7,
+                    "nullable": true,
+                    "description": "What sampling temperature to use, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic."
+                  },
+                  "top_p": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 1,
+                    "example": 1,
+                    "nullable": true,
+                    "description": "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered."
+                  },
+                  "stream": {
+                    "description": "If set, partial message deltas will be sent.",
+                    "type": "boolean",
+                    "nullable": true,
+                    "default": false
+                  }
+                },
+                "required": ["model", "messages"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Represents a chat completion response returned by model, based on the provided input.",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "A unique identifier for the chat completion."
+                    },
+                    "choices": {
+                      "type": "array",
+                      "description": "A list of chat completion choices. Can be more than one if n is greater than 1.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {
+                            "type": "integer",
+                            "description": "The index of the choice in the list of choices."
+                          },
+                          "message": {
+                            "type": "object",
+                            "description": "A chat completion message generated by the model.",
+                            "properties": {
+                              "content": {
+                                "type": "string",
+                                "description": "The contents of the message."
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": ["assistant"],
+                                "description": "The role of the author of this message."
+                              }
+                            },
+                            "required": ["role", "content"]
+                          },
+                          "finish_reason": {
+                            "type": "string",
+                            "description": "The reason the model stopped generating tokens.",
+                            "enum": ["stop", "length", "content_filter"]
+                          }
+                        },
+                        "required": ["index", "message", "finish_reason"]
+                      }
+                    },
+                    "created": {
+                      "type": "integer",
+                      "description": "The Unix timestamp (in seconds) of when the chat completion was created."
+                    },
+                    "model": {
+                      "type": "string",
+                      "description": "The model used for the chat completion."
+                    },
+                    "usage": {
+                      "type": "object",
+                      "description": "Usage statistics for the completion request.",
+                      "properties": {
+                        "completion_tokens": {
+                          "type": "integer",
+                          "description": "Number of tokens in the generated completion."
+                        },
+                        "prompt_tokens": {
+                          "type": "integer",
+                          "description": "Number of tokens in the prompt."
+                        },
+                        "total_tokens": {
+                          "type": "integer",
+                          "description": "Total number of tokens used in the request (prompt + completion)."
+                        }
+                      },
+                      "required": [
+                        "prompt_tokens",
+                        "completion_tokens",
+                        "total_tokens"
+                      ]
+                    }
+                  },
+                  "required": ["id", "choices", "created", "model", "usage"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {}
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}
