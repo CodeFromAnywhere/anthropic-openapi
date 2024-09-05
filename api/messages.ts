@@ -8,9 +8,10 @@ export const OPTIONS = async (request: Request) => {
   // Handle OPTIONS request (preflight)
   return new Response(null, { headers });
 };
-/**Proxy: Pass the request, allowing any origin
+/**
+ * Proxy: Pass the request, allowing any origin
  *
- * Instead, we can use a header too... https://simonwillison.net/2024/Aug/23/anthropic-dangerous-direct-browser-access/
+ * Instead, we can use a header too. https://simonwillison.net/2024/Aug/23/anthropic-dangerous-direct-browser-access/
  */
 
 export const POST = async (request: Request) => {
@@ -21,7 +22,7 @@ export const POST = async (request: Request) => {
   const baseUrl = openapi["x-origin-servers"][0].url;
 
   const json = await request.json();
-  const headers = {};
+  const headers: { [k: string]: string } = {};
 
   const neededHeaders = ["x-api-key", "anthropic-version", "content-type"];
   request.headers.forEach((value, key) => {

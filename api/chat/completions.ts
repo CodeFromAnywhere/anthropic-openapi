@@ -1,197 +1,190 @@
-// Base interface for all events
-interface BaseEvent {
-  type: string;
-}
+import { notEmpty } from "openapi-util";
+import {
+  ContentBlock,
+  ContentBlockStartEvent,
+  CreateMessageRequest,
+  CreateMessageResponse,
+  InputJsonDelta,
+  Message as AnthropicMessage,
+  MessageDeltaEvent,
+  MessageStartEvent,
+  MessageStopEvent,
+  StreamResponseEvent,
+  SystemPrompt,
+  TextDelta,
+  Tool as AnthropicTool,
+  ToolChoice,
+  ContentBlockDeltaEvent,
+} from "../../src/anthropic-types.js";
+import {
+  ChatCompletionChunk,
+  ChatCompletionRequest,
+  ContentPart,
+  Tool as ChatCompletionTool,
+  Message as ChatCompletionMessage,
+  ChatCompletionResponse,
+  ChatCompletionChoice,
+  ToolCall,
+} from "../../src/openai-types.js";
+/** needed for image support anthropic */
+const urlToBase64 = (url?: string) => undefined;
 
-// Message start event
-interface MessageStartEvent extends BaseEvent {
-  type: "message_start";
-  message: {
-    id: string;
-    type: "message";
-    role: "assistant";
-    content: any[];
-    model: string;
-    stop_reason: string | null;
-    stop_sequence: string | null;
-    usage: {
-      input_tokens: number;
-      output_tokens: number;
-    };
-  };
-}
+const parseContentParts = (parts: ContentPart[] | null | undefined) => {
+  if (!parts) {
+    return "";
+  }
+  const strings = parts.reduce((res, part) => {
+    if (part.type === "text") {
+      return res.concat(part.text!);
+    }
+    if (part.type === "image_url" && part.image_url) {
+      return res.concat(
+        `![resolution:${part.image_url.detail}](${part.image_url.url})`,
+      );
+    }
+    return res;
+  }, [] as string[]);
 
-// Content block start event
-interface ContentBlockStartEvent extends BaseEvent {
-  type: "content_block_start";
-  index: number;
-  content_block: {
-    type: string;
-    text?: string;
-    // tool use
-    id?: string;
-    name?: string;
-    input?: any;
-  };
-}
-
-// Base interface for content block deltas
-interface ContentBlockDeltaBase extends BaseEvent {
-  type: "content_block_delta";
-  index: number;
-  delta: {
-    type: string;
-  };
-}
-
-// Text delta
-interface TextDelta extends ContentBlockDeltaBase {
-  delta: {
-    type: "text_delta";
-    text: string;
-  };
-}
-
-// Input JSON delta (for tool use)
-interface InputJSONDelta extends ContentBlockDeltaBase {
-  delta: {
-    type: "input_json_delta";
-    partial_json: string;
-  };
-}
-
-// Content block stop event
-interface ContentBlockStopEvent extends BaseEvent {
-  type: "content_block_stop";
-  index: number;
-}
-
-// Message delta event
-interface MessageDeltaEvent extends BaseEvent {
-  type: "message_delta";
-  delta: {
-    stop_reason?: string;
-    stop_sequence?: string | null;
-  };
-  usage?: {
-    output_tokens: number;
-  };
-}
-
-// Message stop event
-interface MessageStopEvent extends BaseEvent {
-  type: "message_stop";
-}
-
-// Ping event
-interface PingEvent extends BaseEvent {
-  type: "ping";
-}
-
-// Error event
-interface ErrorEvent extends BaseEvent {
-  type: "error";
-  error: {
-    type: string;
-    message: string;
-  };
-}
-
-// Union type for all possible events
-type StreamingEvent =
-  | MessageStartEvent
-  | ContentBlockStartEvent
-  | TextDelta
-  | InputJSONDelta
-  | ContentBlockStopEvent
-  | MessageDeltaEvent
-  | MessageStopEvent
-  | PingEvent
-  | ErrorEvent;
-
-// openai stuff:
-
-export type FullToolCallDelta = {
-  id: string;
-  index: number;
-  type: "function";
-  function: { name: string; arguments: string };
+  return strings.join("\n\n");
 };
-export type PartialToolCallDelta = {
-  type: undefined;
-  id: undefined;
-  index: number;
-  function: { arguments: string };
-};
-
-export interface ChatCompletionChunk {
-  id: string;
-  object: "chat.completion.chunk";
-  created: number;
-  model: string;
-  system_fingerprint: string;
-  service_tier?: string | null;
-  /** only given if setting stream_options: {"include_usage": true} in request, only given in last stream chunk */
-  usage?: null | {
-    completion_tokens: number;
-    prompt_tokens: number;
-    total_tokens: number;
-  };
-  choices: {
-    index: number;
-    delta:
-      | {
-          role: string;
-          content?: string | null;
-          /** Important: openai has this type where arguments come later and must be augmented in order. Groq does just have the first one. Badly documented! */
-          tool_calls?: (FullToolCallDelta | PartialToolCallDelta)[];
-
-          /** Our own addition */
-          tools?: any[];
-        }
-      | {
-          role: undefined;
-          content: undefined;
-          tool_calls: undefined;
-          tools: undefined;
-        };
-    logprobs: null;
-    finish_reason: null | string;
-  }[];
-  //extra info from different parties
-  x_groq?: any;
-  x_actionschema?: any;
-}
 
 export const POST = async (req: Request) => {
   const openapi = await fetch(new URL(req.url).origin + "/openapi.json").then(
     (res) => res.json(),
   );
-
   const baseUrl = openapi["x-origin-servers"][0].url;
 
-  const json = await req.json();
+  const input: ChatCompletionRequest = await req.json();
   const headers = new Headers({
     "Content-Type": "application/json",
     "anthropic-version": "2023-06-01",
     "x-api-key": req.headers.get("authorization")?.split(" ")[1] || "",
   });
 
-  const system = json.messages.find((x) => x.role === "system")?.content;
-  const messages = json.messages.filter((x) => x.role !== "system");
-  console.log({ messages: json.messages, system, other: messages });
-  const anthropicBody = {
-    model: json.model,
-    max_tokens: json.max_tokens || 4096,
-    system,
-    messages,
-    stream: json.stream,
-    temperature: json.temperature,
-    top_p: json.top_p,
-    stop_sequences: json.stop,
+  const system = input.messages.find((x) => x.role === "system")?.content;
+
+  const anthropicMessages: AnthropicMessage[] = input.messages
+    .filter((x) => x.role !== "system")
+    .map((item) => {
+      if (item.role === "function") {
+        // deprecated
+        return;
+      }
+      if (item.role === "system") {
+        //already filtered out
+        return;
+      }
+
+      if (item.role === "tool") {
+        const message: AnthropicMessage = {
+          role: "user",
+          content: [
+            {
+              tool_use_id: item.tool_call_id,
+              type: "tool_result",
+              is_error: false,
+              content: item.content,
+            },
+          ],
+        };
+        return message;
+      }
+
+      const role = item.role;
+
+      if (typeof item.content === "string") {
+        return { content: item.content, role };
+      }
+
+      const content: ContentBlock[] =
+        item.content
+          ?.map((item) => {
+            if (item.type === "image_url") {
+              const data = urlToBase64(item.text);
+              const contentBlock: ContentBlock = {
+                type: "image",
+                source: {
+                  type: "base64",
+                  data: data as unknown as string,
+                  media_type: "image/webp",
+                },
+              };
+              return contentBlock;
+            }
+
+            if (item.type === "text" && item.text) {
+              return { type: "text", text: item.text } satisfies ContentBlock;
+            }
+
+            return;
+          })
+          .filter(notEmpty) || [];
+
+      const message: AnthropicMessage = {
+        role,
+        content,
+      };
+
+      return message;
+    })
+    .filter(notEmpty);
+
+  const anthropicTools: AnthropicTool[] | undefined = input.tools
+    ?.map((item) => {
+      if (item.type !== "function") {
+        // not supported
+        return;
+      }
+      const anthropicTool: AnthropicTool = {
+        name: item.function.name,
+        description: item.function.description,
+        input_schema: item.function.parameters || { type: "object" },
+      };
+      return anthropicTool;
+    })
+    .filter(notEmpty);
+
+  const anthropicToolChoice: ToolChoice | undefined =
+    input.tool_choice === "auto"
+      ? { type: "auto" }
+      : input.tool_choice === "none"
+        ? undefined
+        : input.tool_choice?.type === "function"
+          ? { type: "tool", name: input.tool_choice.function.name }
+          : undefined;
+
+  const anthropicSystem: SystemPrompt[] =
+    typeof system === "string"
+      ? [{ text: system, type: "text", cache_control: { type: "ephemeral" } }]
+      : [
+          {
+            type: "text",
+            cache_control: { type: "ephemeral" },
+            text: parseContentParts(system),
+          },
+        ];
+
+  const anthropicBody: CreateMessageRequest = {
+    // needs no alteration
+    model: input.model,
+    stream: input.stream,
+    temperature: input.temperature,
+    top_p: input.top_p,
+
+    // needs alteration
+    max_tokens: input.max_tokens || 4096,
+    stop_sequences:
+      typeof input.stop === "string" ? [input.stop] : input.stop || undefined,
+    system: anthropicSystem,
+    messages: anthropicMessages,
+    tool_choice: anthropicToolChoice,
+    tools: anthropicTools,
+
+    // not possible with chat completions:
+    metadata: undefined,
+    top_k: undefined,
   };
 
-  console.log(anthropicBody);
   const result = await fetch(baseUrl + "/messages", {
     method: "POST",
     headers: headers,
@@ -199,11 +192,7 @@ export const POST = async (req: Request) => {
   });
 
   if (!result.ok) {
-    console.log("Err", result.status, result.statusText);
-
     const text = await result.text();
-    console.log("text", text);
-
     return new Response(text, {
       status: result.status,
       statusText: result.statusText,
@@ -211,7 +200,7 @@ export const POST = async (req: Request) => {
     });
   }
 
-  if (!json.stream) {
+  if (!input.stream) {
     const anthropicResponse = await result.json();
     const openAIResponse = transformAnthropicToOpenAI(anthropicResponse);
     return new Response(JSON.stringify(openAIResponse), {
@@ -237,7 +226,7 @@ export const POST = async (req: Request) => {
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               console.log("line", line);
-              const data = JSON.parse(line.slice(6));
+              const data: StreamResponseEvent = JSON.parse(line.slice(6));
               if (data.type === "message_start") {
                 controller.enqueue(
                   `data: ${JSON.stringify(transformMessageStart(data))}\n\n`,
@@ -245,28 +234,34 @@ export const POST = async (req: Request) => {
               } else if (data.type === "content_block_start") {
                 controller.enqueue(
                   `data: ${JSON.stringify(
-                    transformContentBlockStart(data, json.model),
+                    transformContentBlockStart(data, input.model),
                   )}\n\n`,
                 );
               } else if (data.type === "content_block_delta") {
                 controller.enqueue(
                   `data: ${JSON.stringify(
-                    transformContentBlockDelta(data, json.model),
+                    transformContentBlockDelta(data, input.model),
                   )}\n\n`,
                 );
               } else if (data.type === "message_delta") {
                 controller.enqueue(
                   `data: ${JSON.stringify(
-                    transformMessageDelta(data, json.model),
+                    transformMessageDelta(data, input.model),
                   )}\n\n`,
                 );
               } else if (data.type === "message_stop") {
                 controller.enqueue(
                   `data: ${JSON.stringify(
-                    transformMessageStop(data, json.model),
+                    transformMessageStop(data, input.model),
                   )}\n\n`,
                 );
                 controller.enqueue("data: [DONE]\n\n");
+              } else if (data.type === "content_block_stop") {
+                //todo
+              } else if (data.type === "error") {
+                //todo
+              } else if (data.type === "ping") {
+                //todo
               }
             }
           }
@@ -284,22 +279,53 @@ export const POST = async (req: Request) => {
   });
 };
 
-function transformAnthropicToOpenAI(anthropicResponse: any) {
-  return {
+function transformAnthropicToOpenAI(anthropicResponse: CreateMessageResponse) {
+  const completionResponse: ChatCompletionResponse = {
     id: anthropicResponse.id,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
     model: anthropicResponse.model,
-    choices: [
-      {
+    system_fingerprint: "",
+    choices: anthropicResponse.content.map((item) => {
+      const mapper = {
+        end_turn: "stop",
+        max_tokens: "length",
+        stop_sequence: "stop",
+        tool_use: "tool_calls",
+      } as const;
+
+      const finish_reason: ChatCompletionChoice["finish_reason"] =
+        anthropicResponse.stop_reason
+          ? mapper[anthropicResponse.stop_reason]
+          : "stop";
+
+      const tool_calls: ToolCall[] | undefined =
+        item.type === "tool_use"
+          ? [
+              {
+                type: "function",
+                id: item.id,
+                function: {
+                  name: item.name,
+                  arguments: JSON.stringify(item.input),
+                },
+              },
+            ]
+          : undefined;
+
+      const choice: ChatCompletionChoice = {
         index: 0,
+        logprobs: null,
+        finish_reason,
         message: {
           role: "assistant",
-          content: anthropicResponse.content[0].text,
+          tool_calls,
+          content: item.type === "text" ? item.text : null,
         },
-        finish_reason: anthropicResponse.stop_reason,
-      },
-    ],
+      };
+      return choice;
+    }),
+
     usage: {
       prompt_tokens: anthropicResponse.usage.input_tokens,
       completion_tokens: anthropicResponse.usage.output_tokens,
@@ -308,6 +334,8 @@ function transformAnthropicToOpenAI(anthropicResponse: any) {
         anthropicResponse.usage.output_tokens,
     },
   };
+
+  return completionResponse;
 }
 
 function transformMessageStart(data: MessageStartEvent) {
@@ -352,14 +380,13 @@ function transformContentBlockStart(
             data.content_block.type === "tool_use"
               ? [
                   {
-                    index: 0,
                     type: "function",
                     id: data.content_block.id,
                     function: {
                       name: data.content_block.name,
-                      arguments: data.content_block.input,
+                      arguments: JSON.stringify(data.content_block.input),
                     },
-                  },
+                  } satisfies ToolCall,
                 ]
               : undefined,
         },
@@ -371,7 +398,7 @@ function transformContentBlockStart(
 }
 
 function transformContentBlockDelta(
-  data: TextDelta | InputJSONDelta,
+  data: ContentBlockDeltaEvent,
   model: string,
 ) {
   const chunk: ChatCompletionChunk = {
@@ -392,11 +419,10 @@ function transformContentBlockDelta(
             data.delta.type === "input_json_delta"
               ? [
                   {
-                    index: 0,
-                    function: { arguments: data.delta.partial_json },
-                    type: undefined,
-                    id: undefined,
-                  },
+                    function: { arguments: data.delta.partial_json, name: "" },
+                    type: "function",
+                    id: "",
+                  } satisfies ToolCall,
                 ]
               : undefined,
         },
