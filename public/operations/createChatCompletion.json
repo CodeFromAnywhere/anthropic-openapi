@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Anthropic API",
-    "description": "The Anthropic Chat Completions API. ",
+    "description": "The Anthropic Chat Completions API.",
     "termsOfService": "https://www.anthropic.com/legal/terms",
     "contact": {
       "name": "Anthropic Support",
@@ -40,100 +40,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "messages": {
-                    "description": "A list of messages comprising the conversation so far.",
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "oneOf": [
-                        {
-                          "type": "object",
-                          "title": "Human message",
-                          "properties": {
-                            "content": {
-                              "description": "The contents of the human message.",
-                              "type": "string"
-                            },
-                            "role": {
-                              "type": "string",
-                              "enum": ["human"],
-                              "description": "The role of the messages author, in this case `human`."
-                            }
-                          },
-                          "required": ["content", "role"]
-                        },
-                        {
-                          "type": "object",
-                          "title": "Assistant message",
-                          "properties": {
-                            "content": {
-                              "type": "string",
-                              "description": "The contents of the assistant message."
-                            },
-                            "role": {
-                              "type": "string",
-                              "enum": ["assistant"],
-                              "description": "The role of the messages author, in this case `assistant`."
-                            }
-                          },
-                          "required": ["role", "content"]
-                        }
-                      ],
-                      "x-oaiExpandable": true
-                    }
-                  },
-                  "model": {
-                    "description": "ID of the model to use.",
-                    "example": "claude-3-5-sonnet-20240620",
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string",
-                        "enum": [
-                          "claude-3-opus-20240229",
-                          "claude-3-sonnet-20240229",
-                          "claude-3-haiku-20240307",
-                          "claude-3-5-sonnet-20240620"
-                        ]
-                      }
-                    ],
-                    "x-oaiTypeLabel": "string"
-                  },
-                  "max_tokens": {
-                    "description": "The maximum number of tokens to generate in the chat completion.",
-                    "type": "integer",
-                    "nullable": true
-                  },
-                  "temperature": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 0.7,
-                    "example": 0.7,
-                    "nullable": true,
-                    "description": "What sampling temperature to use, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic."
-                  },
-                  "top_p": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1,
-                    "default": 1,
-                    "example": 1,
-                    "nullable": true,
-                    "description": "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered."
-                  },
-                  "stream": {
-                    "description": "If set, partial message deltas will be sent.",
-                    "type": "boolean",
-                    "nullable": true,
-                    "default": false
-                  }
-                },
-                "required": ["model", "messages"]
+                "$ref": "#/components/schemas/ChatCompletionRequest"
               }
             }
           }
@@ -144,81 +51,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "description": "Represents a chat completion response returned by model, based on the provided input.",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "A unique identifier for the chat completion."
-                    },
-                    "choices": {
-                      "type": "array",
-                      "description": "A list of chat completion choices. Can be more than one if n is greater than 1.",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "index": {
-                            "type": "integer",
-                            "description": "The index of the choice in the list of choices."
-                          },
-                          "message": {
-                            "type": "object",
-                            "description": "A chat completion message generated by the model.",
-                            "properties": {
-                              "content": {
-                                "type": "string",
-                                "description": "The contents of the message."
-                              },
-                              "role": {
-                                "type": "string",
-                                "enum": ["assistant"],
-                                "description": "The role of the author of this message."
-                              }
-                            },
-                            "required": ["role", "content"]
-                          },
-                          "finish_reason": {
-                            "type": "string",
-                            "description": "The reason the model stopped generating tokens.",
-                            "enum": ["stop", "length", "content_filter"]
-                          }
-                        },
-                        "required": ["index", "message", "finish_reason"]
-                      }
-                    },
-                    "created": {
-                      "type": "integer",
-                      "description": "The Unix timestamp (in seconds) of when the chat completion was created."
-                    },
-                    "model": {
-                      "type": "string",
-                      "description": "The model used for the chat completion."
-                    },
-                    "usage": {
-                      "type": "object",
-                      "description": "Usage statistics for the completion request.",
-                      "properties": {
-                        "completion_tokens": {
-                          "type": "integer",
-                          "description": "Number of tokens in the generated completion."
-                        },
-                        "prompt_tokens": {
-                          "type": "integer",
-                          "description": "Number of tokens in the prompt."
-                        },
-                        "total_tokens": {
-                          "type": "integer",
-                          "description": "Total number of tokens used in the request (prompt + completion)."
-                        }
-                      },
-                      "required": [
-                        "prompt_tokens",
-                        "completion_tokens",
-                        "total_tokens"
-                      ]
-                    }
-                  },
-                  "required": ["id", "choices", "created", "model", "usage"]
+                  "$ref": "#/components/schemas/ChatCompletionResponse"
                 }
               }
             }
@@ -228,13 +61,594 @@
     }
   },
   "components": {
+    "schemas": {
+      "ChatCompletionRequest": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "description": "A list of messages comprising the conversation so far."
+          },
+          "model": {
+            "type": "string",
+            "description": "ID of the model to use. Must be one that the provider supports."
+          },
+          "frequency_penalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2,
+            "default": 0,
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim."
+          },
+          "logit_bias": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Modify the likelihood of specified tokens appearing in the completion."
+          },
+          "logprobs": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to return log probabilities of the output tokens or not."
+          },
+          "top_logprobs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "description": "An integer between 0 and 20 specifying the number of most likely tokens to return at each token position, each with an associated log probability."
+          },
+          "max_tokens": {
+            "type": "integer",
+            "description": "The maximum number of tokens to generate in the chat completion."
+          },
+          "n": {
+            "type": "integer",
+            "default": 1,
+            "description": "How many chat completion choices to generate for each input message."
+          },
+          "presence_penalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2,
+            "default": 0,
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics."
+          },
+          "response_format": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["text", "json_object"],
+                "description": "Must be one of `text` or `json_object`."
+              }
+            },
+            "required": ["type"],
+            "description": "An object specifying the format that the model must output."
+          },
+          "seed": {
+            "type": "integer",
+            "description": "If specified, our system will make a best effort to sample deterministically."
+          },
+          "stop": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 4
+              }
+            ],
+            "description": "Up to 4 sequences where the API will stop generating further tokens."
+          },
+          "stream": {
+            "type": "boolean",
+            "default": false,
+            "description": "If set, partial message deltas will be sent, like in ChatGPT."
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 1,
+            "description": "What sampling temperature to use, between 0 and 2."
+          },
+          "top_p": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 1,
+            "description": "An alternative to sampling with temperature, called nucleus sampling."
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tool"
+            },
+            "description": "A list of tools the model may call. Currently, only functions are supported as a tool."
+          },
+          "tool_choice": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["none", "auto"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["function"]
+                  },
+                  "function": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["name"]
+                  }
+                },
+                "required": ["type", "function"]
+              }
+            ],
+            "description": "Controls which (if any) function is called by the model."
+          },
+          "user": {
+            "type": "string",
+            "description": "A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse."
+          }
+        },
+        "required": ["messages", "model"]
+      },
+      "Message": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SystemMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMessage"
+          },
+          {
+            "$ref": "#/components/schemas/AssistantMessage"
+          },
+          {
+            "$ref": "#/components/schemas/ToolMessage"
+          }
+        ]
+      },
+      "SystemMessage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The contents of the system message."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["system"],
+            "description": "The role of the message's author, in this case `system`."
+          },
+          "name": {
+            "type": "string",
+            "description": "An optional name for the participant."
+          }
+        },
+        "required": ["content", "role"]
+      },
+      "UserMessage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContentPart"
+                }
+              }
+            ],
+            "description": "The contents of the user message."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["user"],
+            "description": "The role of the message's author, in this case `user`."
+          },
+          "name": {
+            "type": "string",
+            "description": "An optional name for the participant."
+          }
+        },
+        "required": ["content", "role"]
+      },
+      "AssistantMessage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": ["string", "null"],
+            "description": "The contents of the assistant message."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["assistant"],
+            "description": "The role of the message's author, in this case `assistant`."
+          },
+          "name": {
+            "type": "string",
+            "description": "An optional name for the participant."
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolCall"
+            },
+            "description": "The tool calls generated by the model, such as function calls."
+          }
+        },
+        "required": ["role"]
+      },
+      "ToolMessage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The contents of the tool message."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["tool"],
+            "description": "The role of the message's author, in this case `tool`."
+          },
+          "tool_call_id": {
+            "type": "string",
+            "description": "Tool call that this message is responding to."
+          }
+        },
+        "required": ["content", "role", "tool_call_id"]
+      },
+      "ContentPart": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["text", "image_url"],
+            "description": "The type of content part."
+          },
+          "text": {
+            "type": "string",
+            "description": "The text content if the type is 'text'."
+          },
+          "image_url": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "The URL of the image."
+              },
+              "detail": {
+                "type": "string",
+                "enum": ["auto", "low", "high"],
+                "description": "The detail level of the image."
+              }
+            },
+            "required": ["url", "detail"],
+            "description": "The image URL and detail if the type is 'image_url'."
+          }
+        },
+        "required": ["type"]
+      },
+      "Tool": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["function"],
+            "description": "The type of the tool. Currently, only `function` is supported."
+          },
+          "function": {
+            "$ref": "#/components/schemas/Function"
+          }
+        },
+        "required": ["type", "function"]
+      },
+      "Function": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A description of what the function does."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the function to be called."
+          },
+          "parameters": {
+            "type": "object",
+            "description": "The parameters the function accepts, described as a JSON Schema object."
+          }
+        },
+        "required": ["name"]
+      },
+      "ToolCall": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the tool call."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["function"],
+            "description": "The type of the tool. Currently, only `function` is supported."
+          },
+          "function": {
+            "$ref": "#/components/schemas/FunctionCall"
+          }
+        },
+        "required": ["id", "type", "function"]
+      },
+      "FunctionCall": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the function to call."
+          },
+          "arguments": {
+            "type": "string",
+            "description": "The arguments to call the function with, as generated by the model in JSON format."
+          }
+        },
+        "required": ["name", "arguments"]
+      },
+      "ChatCompletionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A unique identifier for the chat completion."
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionChoice"
+            },
+            "description": "A list of chat completion choices. Can be more than one if `n` is greater than 1."
+          },
+          "created": {
+            "type": "integer",
+            "description": "The Unix timestamp (in seconds) of when the chat completion was created."
+          },
+          "model": {
+            "type": "string",
+            "description": "The model used for the chat completion."
+          },
+          "system_fingerprint": {
+            "type": "string",
+            "description": "This fingerprint represents the backend configuration that the model runs with."
+          },
+          "object": {
+            "type": "string",
+            "enum": ["chat.completion"],
+            "description": "The object type, which is always `chat.completion`."
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "id",
+          "choices",
+          "created",
+          "model",
+          "system_fingerprint",
+          "object",
+          "usage"
+        ]
+      },
+      "ChatCompletionChoice": {
+        "type": "object",
+        "properties": {
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls",
+              "content_filter",
+              "function_call"
+            ],
+            "description": "The reason the model stopped generating tokens."
+          },
+          "index": {
+            "type": "integer",
+            "description": "The index of the choice in the list of choices."
+          },
+          "message": {
+            "$ref": "#/components/schemas/AssistantMessage"
+          },
+          "logprobs": {
+            "type": ["object", "null"],
+            "properties": {
+              "content": {
+                "type": ["array", "null"],
+                "items": {
+                  "$ref": "#/components/schemas/TokenLogProb"
+                }
+              }
+            },
+            "description": "Log probability information for the choice."
+          }
+        },
+        "required": ["finish_reason", "index", "message"]
+      },
+      "TokenLogProb": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token."
+          },
+          "logprob": {
+            "type": "number",
+            "description": "The log probability of this token."
+          },
+          "bytes": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "integer"
+            },
+            "description": "A list of integers representing the UTF-8 bytes representation of the token."
+          },
+          "top_logprobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopLogProb"
+            },
+            "description": "List of the most likely tokens and their log probability, at this token position."
+          }
+        },
+        "required": ["token", "logprob", "top_logprobs"]
+      },
+      "TopLogProb": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token."
+          },
+          "logprob": {
+            "type": "number",
+            "description": "The log probability of this token."
+          },
+          "bytes": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "integer"
+            },
+            "description": "A list of integers representing the UTF-8 bytes representation of the token."
+          }
+        },
+        "required": ["token", "logprob"]
+      },
+      "Usage": {
+        "type": "object",
+        "properties": {
+          "completion_tokens": {
+            "type": "integer",
+            "description": "Number of tokens in the generated completion."
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "description": "Number of tokens in the prompt."
+          },
+          "total_tokens": {
+            "type": "integer",
+            "description": "Total number of tokens used in the request (prompt + completion)."
+          }
+        },
+        "required": ["completion_tokens", "prompt_tokens", "total_tokens"]
+      },
+      "ChatCompletionChunk": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": ["chat.completion.chunk"]
+          },
+          "created": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "system_fingerprint": {
+            "type": ["string", "null"]
+          },
+          "service_tier": {
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionChunkChoice"
+            }
+          },
+          "x_groq": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "x_actionschema": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": ["id", "object", "created", "model", "choices"]
+      },
+      "ChatCompletionChunkChoice": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "delta": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "tool_calls": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ToolCall"
+                }
+              },
+              "tools": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Tool"
+                }
+              }
+            }
+          },
+          "logprobs": {
+            "type": ["object", "null"],
+            "additionalProperties": true
+          },
+          "finish_reason": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["index", "delta"]
+      }
+    },
     "securitySchemes": {
       "ApiKeyAuth": {
         "type": "http",
         "scheme": "bearer"
       }
-    },
-    "schemas": {}
+    }
   },
   "security": [
     {
