@@ -35,12 +35,22 @@
             "schema": { "type": "boolean" },
             "description": "enable CORS support for the Anthropic API, which means you can make calls to Anthropic's models directly from a browser",
             "required": false
+          },
+          {
+            "in": "header",
+            "name": "anthropic-version",
+            "schema": {
+              "type": "string",
+              "enum": ["2023-06-01", "2023-01-01"],
+              "example": "2023-06-01"
+            },
+            "description": "Choose a version",
+            "required": true
           }
         ],
         "security": [
           {
-            "ApiKeyAuth": [],
-            "AnthropicVersion": []
+            "ApiKeyAuth": []
           }
         ],
         "requestBody": {
@@ -321,6 +331,7 @@
         }
       },
       "ToolChoice": {
+        "description": "Required if you specify tools!",
         "oneOf": [
           {
             "$ref": "#/components/schemas/AutoToolChoice"
@@ -706,19 +717,12 @@
         "in": "header",
         "name": "x-api-key",
         "description": "Your unique API key for authentication"
-      },
-      "AnthropicVersion": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "anthropic-version",
-        "description": "The version of the Anthropic API you want to use. Use a date in the format YYYY-MM-DD, e.g., '2023-06-01'. Check Anthropic's documentation for the latest version."
       }
     }
   },
   "security": [
     {
-      "ApiKeyAuth": [],
-      "AnthropicVersion": []
+      "ApiKeyAuth": []
     }
   ]
 }

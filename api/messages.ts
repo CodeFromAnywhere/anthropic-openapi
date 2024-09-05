@@ -15,11 +15,7 @@ export const OPTIONS = async (request: Request) => {
  */
 
 export const POST = async (request: Request) => {
-  const openapi = await fetch(
-    new URL(request.url).origin + "/openapi.json",
-  ).then((res) => res.json());
-
-  const baseUrl = openapi["x-origin-servers"][0].url;
+  const baseUrl = "https://api.anthropic.com/v1";
 
   const json = await request.json();
   const headers: { [k: string]: string } = {};

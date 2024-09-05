@@ -11,7 +11,6 @@ import {
   MessageStopEvent,
   StreamResponseEvent,
   SystemPrompt,
-  TextDelta,
   Tool as AnthropicTool,
   ToolChoice,
   ContentBlockDeltaEvent,
@@ -20,8 +19,6 @@ import {
   ChatCompletionChunk,
   ChatCompletionRequest,
   ContentPart,
-  Tool as ChatCompletionTool,
-  Message as ChatCompletionMessage,
   ChatCompletionResponse,
   ChatCompletionChoice,
   ToolCall,
@@ -49,17 +46,17 @@ const parseContentParts = (parts: ContentPart[] | null | undefined) => {
 };
 
 export const POST = async (req: Request) => {
-  const openapi = await fetch(new URL(req.url).origin + "/openapi.json").then(
-    (res) => res.json(),
-  );
-  const baseUrl = openapi["x-origin-servers"][0].url;
-
-  const input: ChatCompletionRequest = await req.json();
-  const headers = new Headers({
+  const baseUrl = "https://api.anthropic.com/v1";
+  const anthropicVersion = "2023-06-01";
+  const apiKey = req.headers.get("authorization")?.split(" ")[1] || "";
+  const headersJson = {
     "Content-Type": "application/json",
-    "anthropic-version": "2023-06-01",
-    "x-api-key": req.headers.get("authorization")?.split(" ")[1] || "",
-  });
+    "anthropic-version": anthropicVersion,
+    "x-api-key": apiKey,
+  };
+  console.log("headers", headersJson);
+  const input: ChatCompletionRequest = await req.json();
+  const headers = new Headers(headersJson);
 
   const system = input.messages.find((x) => x.role === "system")?.content;
 
@@ -129,37 +126,46 @@ export const POST = async (req: Request) => {
     })
     .filter(notEmpty);
 
-  const anthropicTools: AnthropicTool[] | undefined = input.tools
-    ?.map((item) => {
-      if (item.type !== "function") {
-        // not supported
-        return;
-      }
-      const anthropicTool: AnthropicTool = {
-        name: item.function.name,
-        description: item.function.description,
-        input_schema: item.function.parameters || { type: "object" },
-      };
-      return anthropicTool;
-    })
-    .filter(notEmpty);
+  const anthropicTools: AnthropicTool[] | undefined =
+    input.tool_choice === "none"
+      ? undefined
+      : input.tools
+          ?.map((item) => {
+            if (item.type !== "function") {
+              // not supported
+              return;
+            }
+            const anthropicTool: AnthropicTool = {
+              name: item.function.name,
+              description: item.function.description,
+              input_schema: item.function.parameters || { type: "object" },
+            };
+            return anthropicTool;
+          })
+          .filter(notEmpty);
 
   const anthropicToolChoice: ToolChoice | undefined =
-    input.tool_choice === "auto"
-      ? { type: "auto" }
-      : input.tool_choice === "none"
-        ? undefined
+    input.tool_choice === "none"
+      ? undefined
+      : (input.tools && !input.tool_choice) || input.tool_choice === "auto"
+        ? { type: "auto" }
         : input.tool_choice?.type === "function"
           ? { type: "tool", name: input.tool_choice.function.name }
           : undefined;
 
   const anthropicSystem: SystemPrompt[] =
     typeof system === "string"
-      ? [{ text: system, type: "text", cache_control: { type: "ephemeral" } }]
+      ? [
+          {
+            text: system,
+            type: "text",
+            //  cache_control: null, //{ type: "ephemeral" }
+          },
+        ]
       : [
           {
             type: "text",
-            cache_control: { type: "ephemeral" },
+            // cache_control: null, //{ type: "ephemeral" },
             text: parseContentParts(system),
           },
         ];
@@ -184,6 +190,8 @@ export const POST = async (req: Request) => {
     metadata: undefined,
     top_k: undefined,
   };
+
+  console.log("body", anthropicBody);
 
   const result = await fetch(baseUrl + "/messages", {
     method: "POST",

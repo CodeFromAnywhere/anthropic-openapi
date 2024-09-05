@@ -177,8 +177,10 @@
           "tool_choice": {
             "oneOf": [
               {
-                "type": "string",
-                "enum": ["none", "auto"]
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["any", "auto"] }
+                }
               },
               {
                 "type": "object",

@@ -156,7 +156,8 @@ export interface RequestMetadata {
 export interface SystemPrompt {
   type: "text";
   text: string;
-  cache_control: { type: "ephemeral" } | null;
+  /** Not supported yet for every client */
+  cache_control?: { type: "ephemeral" } | null;
 }
 
 /**
