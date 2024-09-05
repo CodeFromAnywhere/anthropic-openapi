@@ -317,30 +317,54 @@ export interface Usage {
   total_tokens: number;
 }
 
-/**
- * Represents a chat completion chunk in a streamed response.
- */
+export type FullToolCallDelta = {
+  id: string;
+  index: number;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+export type PartialToolCallDelta = {
+  type: undefined;
+  id: undefined;
+  index: number;
+  function: { arguments: string };
+};
+
 export interface ChatCompletionChunk {
   id: string;
   object: "chat.completion.chunk";
   created: number;
   model: string;
-  system_fingerprint: string | null;
-  service_tier?: string;
-  usage?: Usage;
-  choices: ChatCompletionChunkChoice[];
-  x_groq?: Record<string, any>;
-  x_actionschema?: Record<string, any>;
-}
-
-export interface ChatCompletionChunkChoice {
-  index: number;
-  delta: {
-    role?: string;
-    content?: string;
-    tool_calls?: ToolCall[];
-    tools?: Tool[];
+  system_fingerprint: string;
+  service_tier?: string | null;
+  /** only given if setting stream_options: {"include_usage": true} in request, only given in last stream chunk */
+  usage?: null | {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
   };
-  logprobs?: Record<string, any> | null;
-  finish_reason?: string | null;
+  choices: {
+    index: number;
+    delta:
+      | {
+          role: string;
+          content?: string | null;
+          /** Important: openai has this type where arguments come later and must be augmented in order. Groq does just have the first one. Badly documented! */
+          tool_calls?: (FullToolCallDelta | PartialToolCallDelta)[];
+
+          /** Our own addition */
+          tools?: any[];
+        }
+      | {
+          role: undefined;
+          content: undefined;
+          tool_calls: undefined;
+          tools: undefined;
+        };
+    logprobs: null;
+    finish_reason: null;
+  }[];
+  //extra info from different parties
+  x_groq?: any;
+  x_actionschema?: any;
 }

@@ -1,11 +1,10 @@
-import { notEmpty } from "openapi-util";
+import { notEmpty, tryParseJson } from "openapi-util";
 import {
   ContentBlock,
   ContentBlockStartEvent,
   CreateMessageRequest,
   CreateMessageResponse,
-  InputJsonDelta,
-  Message as AnthropicMessage,
+  AnthropicMessage,
   MessageDeltaEvent,
   MessageStartEvent,
   MessageStopEvent,
@@ -15,13 +14,16 @@ import {
   ToolChoice,
   ContentBlockDeltaEvent,
 } from "../../src/anthropic-types.js";
+
 import {
-  ChatCompletionChunk,
   ChatCompletionRequest,
   ContentPart,
   ChatCompletionResponse,
   ChatCompletionChoice,
   ToolCall,
+  ChatCompletionChunk,
+  FullToolCallDelta,
+  PartialToolCallDelta,
 } from "../../src/openai-types.js";
 /** needed for image support anthropic */
 const urlToBase64 = (url?: string) => undefined;
@@ -70,6 +72,23 @@ export const POST = async (req: Request) => {
       if (item.role === "system") {
         //already filtered out
         return;
+      }
+
+      if (item.role === "assistant" && item.tool_calls) {
+        // NB: assuming a single tool
+        const message: AnthropicMessage = {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              name: item.tool_calls[0].function.name,
+              id: item.tool_calls[0].id,
+              input: tryParseJson(item.tool_calls[0].function.arguments) || {},
+            },
+          ],
+        };
+        console.log("tool calls message", message);
+        return message;
       }
 
       if (item.role === "tool") {
@@ -235,6 +254,7 @@ export const POST = async (req: Request) => {
             if (line.startsWith("data: ")) {
               console.log("line", line);
               const data: StreamResponseEvent = JSON.parse(line.slice(6));
+
               if (data.type === "message_start") {
                 controller.enqueue(
                   `data: ${JSON.stringify(transformMessageStart(data))}\n\n`,
@@ -271,6 +291,10 @@ export const POST = async (req: Request) => {
               } else if (data.type === "ping") {
                 //todo
               }
+            } else if (line.startsWith("event: ")) {
+              // console.log(line);
+            } else if (line !== "") {
+              console.log(`weird line:`, line);
             }
           }
         }
@@ -349,7 +373,7 @@ function transformAnthropicToOpenAI(anthropicResponse: CreateMessageResponse) {
 function transformMessageStart(data: MessageStartEvent) {
   const chunk: ChatCompletionChunk = {
     id: data.message.id,
-    system_fingerprint: null,
+    system_fingerprint: "",
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model: data.message.model,
@@ -359,6 +383,7 @@ function transformMessageStart(data: MessageStartEvent) {
         index: 0,
         delta: {
           role: "assistant",
+          content: "",
         },
         finish_reason: null,
       },
@@ -371,32 +396,37 @@ function transformContentBlockStart(
   data: ContentBlockStartEvent,
   model: string,
 ) {
+  const tool_calls: FullToolCallDelta[] | undefined =
+    data.content_block.type === "tool_use"
+      ? [
+          {
+            index: 0,
+            type: "function",
+            id: data.content_block.id,
+            function: {
+              name: data.content_block.name,
+              arguments:
+                // NB: At anthropic, this is given at tool-start. Shouldn't be used!
+                JSON.stringify(data.content_block.input) === "{}"
+                  ? ""
+                  : JSON.stringify(data.content_block.input),
+            },
+          },
+        ]
+      : undefined;
   const chunk: ChatCompletionChunk = {
     id: String(Date.now()),
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model: model,
-    system_fingerprint: null,
+    system_fingerprint: "",
     choices: [
       {
         index: 0,
         logprobs: null,
         delta: {
           role: "assistant",
-          content: "",
-          tool_calls:
-            data.content_block.type === "tool_use"
-              ? [
-                  {
-                    type: "function",
-                    id: data.content_block.id,
-                    function: {
-                      name: data.content_block.name,
-                      arguments: JSON.stringify(data.content_block.input),
-                    },
-                  } satisfies ToolCall,
-                ]
-              : undefined,
+          tool_calls,
         },
         finish_reason: null,
       },
@@ -409,31 +439,54 @@ function transformContentBlockDelta(
   data: ContentBlockDeltaEvent,
   model: string,
 ) {
+  const tool_calls: PartialToolCallDelta[] | undefined =
+    data.delta.type === "input_json_delta"
+      ? [
+          {
+            index: 0,
+            function: { arguments: data.delta.partial_json },
+            type: undefined,
+            id: undefined,
+          },
+        ]
+      : undefined;
+
+  const firstChoice: ChatCompletionChunk["choices"][number] = {
+    index: 0,
+    logprobs: null,
+    delta: {
+      role: "assistant",
+      content: data.delta.type === "text_delta" ? data.delta.text : undefined,
+      tool_calls,
+    },
+    finish_reason: null,
+  };
+  console.log("first", tool_calls);
+
   const chunk: ChatCompletionChunk = {
     id: String(Date.now()),
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model,
-    system_fingerprint: null,
+    system_fingerprint: "",
+    choices: [firstChoice],
+  };
+  return chunk;
+}
+
+function transformMessageDelta(data: MessageDeltaEvent, model: string) {
+  console.log(`doing nothing with DATA messagedelta`, data);
+  const chunk: ChatCompletionChunk = {
+    id: String(Date.now()),
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model,
+    system_fingerprint: "",
     choices: [
       {
         index: 0,
+        delta: { role: "assistant", content: "" },
         logprobs: null,
-        delta: {
-          role: "assistant",
-          content:
-            data.delta.type === "text_delta" ? data.delta.text : undefined,
-          tool_calls:
-            data.delta.type === "input_json_delta"
-              ? [
-                  {
-                    function: { arguments: data.delta.partial_json, name: "" },
-                    type: "function",
-                    id: "",
-                  } satisfies ToolCall,
-                ]
-              : undefined,
-        },
         finish_reason: null,
       },
     ],
@@ -441,39 +494,20 @@ function transformContentBlockDelta(
   return chunk;
 }
 
-function transformMessageDelta(data: MessageDeltaEvent, model: string) {
-  const chunk: ChatCompletionChunk = {
-    id: String(Date.now()),
-    object: "chat.completion.chunk",
-    created: Math.floor(Date.now() / 1000),
-    model,
-    system_fingerprint: null,
-    choices: [
-      {
-        index: 0,
-        delta: { role: "assistant" },
-        logprobs: null,
-        finish_reason: data.delta.stop_reason,
-      },
-    ],
-  };
-  return chunk;
-}
-
 function transformMessageStop(data: MessageStopEvent, model: string) {
+  console.log(`doing nothing with data messagestop:`, data);
   const chunk: ChatCompletionChunk = {
     id: String(Date.now()),
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model,
-    system_fingerprint: null,
+    system_fingerprint: "",
     choices: [
       {
         index: 0,
-
-        delta: { role: "assistant" },
+        delta: { role: "assistant", content: "" },
         logprobs: null,
-        finish_reason: "stop",
+        finish_reason: null,
       },
     ],
   };

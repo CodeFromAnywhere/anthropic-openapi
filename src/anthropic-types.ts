@@ -13,7 +13,7 @@ export interface CreateMessageRequest {
    * Our models are trained to operate on alternating user and assistant conversational turns.
    * The first message must always use the user role.
    */
-  messages: Message[];
+  messages: AnthropicMessage[];
 
   /**
    * The maximum number of tokens to generate before stopping.
@@ -77,7 +77,7 @@ export interface CreateMessageRequest {
 /**
  * Represents a message in the conversation.
  */
-export interface Message {
+export interface AnthropicMessage {
   /**
    * The role of the message sender.
    */
