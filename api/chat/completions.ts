@@ -69,10 +69,10 @@ export const POST = async (req: Request) => {
         // deprecated
         return;
       }
-      if (item.role === "system") {
-        //already filtered out
-        return;
-      }
+      // if (item.role === "system") {
+      //   //already filtered out
+      //   return;
+      // }
 
       if (item.role === "assistant" && item.tool_calls) {
         // NB: assuming a single tool
