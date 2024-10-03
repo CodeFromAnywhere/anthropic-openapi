@@ -82,7 +82,6 @@ const parseContentParts = (parts: ContentPart[] | null | undefined) => {
 };
 
 export const POST = async (req: Request) => {
-  const baseUrl = "https://api.anthropic.com/v1";
   const anthropicVersion = "2023-06-01";
   const apiKey = req.headers.get("authorization")?.split(" ")[1] || "";
   const headersJson = {
@@ -201,10 +200,10 @@ export const POST = async (req: Request) => {
     input.tool_choice === "none"
       ? undefined
       : (input.tools && !input.tool_choice) || input.tool_choice === "auto"
-        ? { type: "auto" }
-        : input.tool_choice?.type === "function"
-          ? { type: "tool", name: input.tool_choice.function.name }
-          : undefined;
+      ? { type: "auto" }
+      : input.tool_choice?.type === "function"
+      ? { type: "tool", name: input.tool_choice.function.name }
+      : undefined;
 
   const anthropicSystem: SystemPrompt[] =
     typeof system === "string"
@@ -246,7 +245,7 @@ export const POST = async (req: Request) => {
 
   console.log("body", anthropicBody);
 
-  const result = await fetch(baseUrl + "/messages", {
+  const result = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: headers,
     body: JSON.stringify(anthropicBody),
@@ -283,7 +282,7 @@ export const POST = async (req: Request) => {
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-const encoder = new TextEncoder();
+          const encoder = new TextEncoder();
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -292,31 +291,41 @@ const encoder = new TextEncoder();
 
               if (data.type === "message_start") {
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(transformMessageStart(data))}\n\n`)
+                  encoder.encode(
+                    `data: ${JSON.stringify(transformMessageStart(data))}\n\n`,
+                  ),
                 );
               } else if (data.type === "content_block_start") {
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(
-                    transformContentBlockStart(data, input.model),
-                  )}\n\n`)
+                  encoder.encode(
+                    `data: ${JSON.stringify(
+                      transformContentBlockStart(data, input.model),
+                    )}\n\n`,
+                  ),
                 );
               } else if (data.type === "content_block_delta") {
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(
-                    transformContentBlockDelta(data, input.model),
-                  )}\n\n`)
+                  encoder.encode(
+                    `data: ${JSON.stringify(
+                      transformContentBlockDelta(data, input.model),
+                    )}\n\n`,
+                  ),
                 );
               } else if (data.type === "message_delta") {
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(
-                    transformMessageDelta(data, input.model),
-                  )}\n\n`)
+                  encoder.encode(
+                    `data: ${JSON.stringify(
+                      transformMessageDelta(data, input.model),
+                    )}\n\n`,
+                  ),
                 );
               } else if (data.type === "message_stop") {
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(
-                    transformMessageStop(data, input.model),
-                  )}\n\n`)
+                  encoder.encode(
+                    `data: ${JSON.stringify(
+                      transformMessageStop(data, input.model),
+                    )}\n\n`,
+                  ),
                 );
                 controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               } else if (data.type === "content_block_stop") {

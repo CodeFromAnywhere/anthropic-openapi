@@ -21,8 +21,6 @@ export const config = {
  */
 
 export const POST = async (request: Request) => {
-  const baseUrl = "https://api.anthropic.com/v1";
-
   const json = await request.json();
   const headers: { [k: string]: string } = {};
 
@@ -34,7 +32,7 @@ export const POST = async (request: Request) => {
     headers[key] = value;
   });
 
-  const result = await fetch(baseUrl + "/messages", {
+  const result = await fetch("https://api.anthropic.com/v1/messages", {
     method: request.method,
     body: JSON.stringify(json),
     headers: new Headers(headers),
