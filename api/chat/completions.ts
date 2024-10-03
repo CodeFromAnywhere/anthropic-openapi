@@ -1,4 +1,3 @@
-import { notEmpty, tryParseJson } from "openapi-util";
 import {
   ContentBlock,
   ContentBlockStartEvent,
@@ -25,6 +24,41 @@ import {
   FullToolCallDelta,
   PartialToolCallDelta,
 } from "../../src/openai-types.js";
+
+export const config = {
+  runtime: "edge", //NB: Must be iad1	us-east-1	Washington, D.C., USA for it to be fast with the vector
+  regions: ["iad1"],
+};
+/**
+ * Removes empty values (null or undefined) from your arrays in a type-safe way
+ */
+export function notEmpty<TValue extends unknown>(
+  value: TValue | null | undefined,
+): value is TValue {
+  return value !== null && value !== undefined;
+}
+
+const removeCommentsRegex = /\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g;
+
+/**
+ * if text isn't json, returns null
+ */
+export const tryParseJson = <T extends unknown>(
+  text: string,
+  logParseError?: boolean,
+): T | null => {
+  try {
+    const jsonStringWithoutComments = text.replace(
+      removeCommentsRegex,
+      (m, g) => (g ? "" : m),
+    );
+    return JSON.parse(jsonStringWithoutComments) as T;
+  } catch (parseError) {
+    if (logParseError) console.log("JSON Parse error:", parseError);
+    return null;
+  }
+};
+
 /** needed for image support anthropic */
 const urlToBase64 = (url?: string) => undefined;
 

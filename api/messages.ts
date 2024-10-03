@@ -8,6 +8,12 @@ export const OPTIONS = async (request: Request) => {
   // Handle OPTIONS request (preflight)
   return new Response(null, { headers });
 };
+
+export const config = {
+  runtime: "edge", //NB: Must be iad1	us-east-1	Washington, D.C., USA for it to be fast with the vector
+  regions: ["iad1"],
+};
+
 /**
  * Proxy: Pass the request, allowing any origin
  *
