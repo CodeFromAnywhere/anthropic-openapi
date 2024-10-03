@@ -299,6 +299,7 @@ export const POST = async (req: Request) => {
           }
         }
       } catch (error) {
+        console.error("Error in stream processing:", error);
         controller.error(error);
       } finally {
         controller.close();
