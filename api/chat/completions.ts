@@ -26,7 +26,7 @@ import {
 } from "../../src/openai-types.js";
 
 export const config = {
-  runtime: "edge",
+  // runtime: "edge",
   regions: ["iad1"],
 };
 /**
