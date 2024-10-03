@@ -26,7 +26,7 @@ import {
 } from "../../src/openai-types.js";
 
 export const config = {
-  //runtime: "edge", //NB: Must be iad1	us-east-1	Washington, D.C., USA for it to be fast with the vector
+  runtime: "edge",
   regions: ["iad1"],
 };
 /**
@@ -283,6 +283,7 @@ export const POST = async (req: Request) => {
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
+const encoder = new TextEncoder();
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -291,33 +292,33 @@ export const POST = async (req: Request) => {
 
               if (data.type === "message_start") {
                 controller.enqueue(
-                  `data: ${JSON.stringify(transformMessageStart(data))}\n\n`,
+                  encoder.encode(`data: ${JSON.stringify(transformMessageStart(data))}\n\n`)
                 );
               } else if (data.type === "content_block_start") {
                 controller.enqueue(
-                  `data: ${JSON.stringify(
+                  encoder.encode(`data: ${JSON.stringify(
                     transformContentBlockStart(data, input.model),
-                  )}\n\n`,
+                  )}\n\n`)
                 );
               } else if (data.type === "content_block_delta") {
                 controller.enqueue(
-                  `data: ${JSON.stringify(
+                  encoder.encode(`data: ${JSON.stringify(
                     transformContentBlockDelta(data, input.model),
-                  )}\n\n`,
+                  )}\n\n`)
                 );
               } else if (data.type === "message_delta") {
                 controller.enqueue(
-                  `data: ${JSON.stringify(
+                  encoder.encode(`data: ${JSON.stringify(
                     transformMessageDelta(data, input.model),
-                  )}\n\n`,
+                  )}\n\n`)
                 );
               } else if (data.type === "message_stop") {
                 controller.enqueue(
-                  `data: ${JSON.stringify(
+                  encoder.encode(`data: ${JSON.stringify(
                     transformMessageStop(data, input.model),
-                  )}\n\n`,
+                  )}\n\n`)
                 );
-                controller.enqueue("data: [DONE]\n\n");
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               } else if (data.type === "content_block_stop") {
                 //todo
               } else if (data.type === "error") {
